@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Control David V23 Verifica Cierres</title>
+<style>
+:root {
+  --bg:#eef4ff;--dark:#0f172a;--blue:#2563eb;--green:#16a34a;--red:#dc2626;
+  --orange:#f59e0b;--gray:#64748b;--line:#dbeafe;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+body{background:var(--bg);color:var(--dark);padding-bottom:48px}
+header{background:linear-gradient(135deg,#0f172a,#2563eb);color:white;text-align:center;padding:34px 16px 30px}
+header h1{font-size:32px;margin-bottom:8px} header p{opacity:.9}
+.container{max-width:920px;margin:auto;padding:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:28px;padding:22px;margin:16px 0;box-shadow:0 12px 30px rgba(37,99,235,.10)}
+.hero{background:linear-gradient(135deg,#0f172a,#1d4ed8);color:white;border:none}
+.hero small{color:#dbeafe}
+.big{font-size:42px;font-weight:950;margin-top:8px}
+.module{cursor:pointer} .module h2{font-size:31px;margin-bottom:10px}
+.amount{font-size:30px;color:var(--blue);font-weight:950}
+button,input,select,textarea{width:100%;padding:15px;border-radius:16px;border:1px solid #cbd5e1;font-size:16px;margin:7px 0}
+button{background:var(--blue);color:white;border:none;font-weight:900;cursor:pointer}
+button:disabled{opacity:.55;cursor:not-allowed;background:#94a3b8!important}
+.green{background:var(--green)} .red{background:var(--red)} .dark{background:#0f172a} .gray{background:var(--gray)} .orange{background:var(--orange);color:#111827}
+.smallBtn{width:auto;padding:9px 12px;border-radius:12px;font-size:13px;margin:4px 4px 4px 0}
+.status{padding:13px 16px;border-radius:20px;font-weight:900;margin:12px 0}
+.ok{background:#ecfdf5;color:#166534;border:1px solid #bbf7d0}
+.err{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+.warn{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
+.hidden{display:none} .back{width:auto;background:#0f172a;padding:12px 18px;margin-bottom:12px}
+.driver{border-radius:24px;padding:18px;margin:13px 0;border:2px solid transparent;cursor:pointer}
+.greenState{background:#f0fdf4;border-color:#86efac} .redState{background:#fef2f2;border-color:#fecaca}
+.driver h3{font-size:25px;margin-bottom:4px}
+.badge{display:inline-block;padding:8px 13px;border-radius:999px;color:white;font-weight:900;margin-top:8px}
+.badge.green{background:#16a34a} .badge.red{background:#dc2626}
+.small{color:#64748b;font-size:14px;margin:4px 0} hr{border:none;border-top:1px solid #e2e8f0;margin:16px 0}
+.history{max-height:370px;overflow:auto} .item{border-bottom:1px solid #e2e8f0;padding:10px 0} .item:last-child{border-bottom:none}
+.notice{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:18px;padding:12px;margin:12px 0;font-size:14px}
+.pendingBadge{display:inline-block;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;border-radius:999px;padding:8px 12px;font-weight:900;margin-top:8px;font-size:13px}
+.dangerZone{background:#fff5f5;border:1px solid #fecaca;color:#991b1b;border-radius:18px;padding:12px;margin:14px 0}
+.floatingSync{position:fixed;right:14px;bottom:14px;background:#0f172a;color:white;border-radius:999px;padding:12px 16px;font-weight:900;box-shadow:0 12px 30px rgba(0,0,0,.25);z-index:10}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.38);display:none;align-items:center;justify-content:center;z-index:99}
+.overlayBox{background:white;border-radius:22px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25);font-weight:950;text-align:center;min-width:220px}
+.spinner{width:28px;height:28px;border:4px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 12px;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:700px){header h1{font-size:28px}.module h2{font-size:28px}.big{font-size:36px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Control de Ingresos</h1>
+  <p>Choferes · Barbería · Ingreso propio · Google Sheets</p>
+</header>
+
+<div class="container">
+  <div id="syncStatus" class="status warn">Conectando con Google Sheets...</div>
+  <div id="monthAlert"></div>
+
+  <section id="home">
+    <div class="card hero">
+      <small>Total generado este mes</small>
+      <div class="big" id="homeTotal">$ 0</div>
+    </div>
+
+    <div class="card module" onclick="show('drivers')">
+      <h2>🚕 Choferes</h2>
+      <p><b>Generado este mes:</b></p>
+      <div class="amount" id="homeDrivers">$ 0</div>
+      <p class="small" id="homeDriverDebt"></p><div id="pendingDriversHome"></div>
+    </div>
+
+    <div class="card module" onclick="show('barber')">
+      <h2>💈 Barbería</h2>
+      <p><b>Generado este mes:</b></p>
+      <div class="amount" id="homeBarber">$ 0</div><div id="pendingBarberHome"></div>
+    </div>
+
+    <div class="card module" onclick="show('own')">
+      <h2>💰 Ingreso propio</h2>
+      <p><b>Para facturar mensual:</b></p>
+      <div class="amount" id="homeOwn">$ 0</div><div id="pendingOwnHome"></div>
+    </div>
+
+    <div class="card">
+      <button class="dark" onclick="syncNow()">🔄 Sincronizar ahora</button>
+      <button class="gray" onclick="show('backup')">💾 Respaldo / Papelera</button>
+    </div>
+  </section>
+
+  <section id="drivers" class="hidden">
+    <button class="back" onclick="show('home')">← Volver</button>
+    <div class="card">
+      <h2>🚕 Choferes</h2>
+      
+      <button class="green" onclick="openDriverForm()">➕ Agregar chofer</button>
+      <div id="driversList"></div>
+    </div>
+  </section>
+
+  <section id="driverForm" class="hidden">
+    <button class="back" onclick="show('drivers')">← Volver</button>
+    <div class="card">
+      <h2 id="driverFormTitle">Agregar chofer</h2>
+      <input type="hidden" id="driverId">
+      <label>Nombre</label><input id="driverName">
+      <label>Vehículo</label><input id="driverVehicle">
+      <label>Canon diario</label><input type="number" id="driverDaily" value="25000">
+      <label>Ajuste inicial de deuda</label><input type="number" id="driverInitialDebt" value="0">
+      <label>Fecha inicio</label><input type="date" id="driverStart">
+      <button class="green" onclick="saveDriver(this)">Guardar chofer</button>
+      <div id="driverDeleteZone"></div>
+    </div>
+  </section>
+
+  <section id="driverDetail" class="hidden">
+    <button class="back" onclick="show('drivers')">← Volver</button>
+    <div class="card" id="driverDetailBox"></div>
+  </section>
+
+  <section id="barber" class="hidden">
+    <button class="back" onclick="show('home')">← Volver</button>
+    <div class="card">
+      <h2>💈 Barbería</h2>
+      <p><b>Generado este mes:</b></p>
+      <div class="big" id="barberTotal">$ 0</div>
+      <hr>
+      <h3>Registrar ingreso</h3>
+      <input type="date" id="barberDate">
+      <input type="number" id="barberAmount" placeholder="Importe">
+      <button class="green" onclick="addBarber(this)">Guardar ingreso</button>
+      <hr>
+      <h3>📄 Cerrar factura mensual</h3>
+      <p class="small">Elegí el mes a cerrar. Si estás en los días 1 o 2, la app propone el mes anterior.</p>
+      <input type="month" id="barberCloseMonth" onchange="updateRubroClosePreview('BARBERIA')">
+      <div class="notice" id="barberClosePreview"></div>
+      <button class="orange" onclick="closeMonthly('BARBERIA', this)">📄 Cerrar factura del mes seleccionado</button>
+      <hr>
+      <h3>Historial</h3>
+      <div id="barberHistory" class="history"></div>
+    </div>
+  </section>
+
+  <section id="own" class="hidden">
+    <button class="back" onclick="show('home')">← Volver</button>
+    <div class="card">
+      <h2>💰 Ingreso propio</h2>
+      <p><b>Para facturar mensual:</b></p>
+      <div class="big" id="ownTotal">$ 0</div>
+      <hr>
+      <h3>Registrar ingreso</h3>
+      <input type="date" id="ownDate">
+      <input type="number" id="ownAmount" placeholder="Importe">
+      <label>Factura ya emitida</label>
+      <select id="ownInvoiced"><option value="No">No</option><option value="Sí">Sí</option></select>
+      <textarea id="ownNote" placeholder="Pasajero / observación"></textarea>
+      <button class="green" onclick="addOwn(this)">Guardar ingreso</button>
+      <hr>
+      <h3>📄 Cerrar factura mensual</h3>
+      <p class="small">Elegí el mes a cerrar. Solo suma ingresos con Factura emitida = No.</p>
+      <input type="month" id="ownCloseMonth" onchange="updateRubroClosePreview('INGRESO_PROPIO')">
+      <div class="notice" id="ownClosePreview"></div>
+      <button class="orange" onclick="closeMonthly('INGRESO_PROPIO', this)">📄 Cerrar factura del mes seleccionado</button>
+      <hr>
+      <h3>Historial</h3>
+      <div id="ownHistory" class="history"></div>
+    </div>
+  </section>
+
+  <section id="backup" class="hidden">
+    <button class="back" onclick="show('home')">← Volver</button>
+    <div class="card">
+      <h2>💾 Respaldo</h2>
+      <button class="dark" onclick="syncNow()">🔄 Leer desde Google Sheets</button>
+      <button class="gray" onclick="exportLocal()">Exportar JSON local</button>
+      <label>Importar respaldo JSON</label>
+      <input type="file" accept=".json" onchange="importLocal(event)">
+      <hr>
+      <h3>🗑️ Papelera</h3>
+      <div id="trashHistory" class="history"></div>
+    </div>
+  </section>
+</div>
+
+<div class="floatingSync" id="floatingSync">☁️ Sheets</div>
+<div class="overlay" id="busyOverlay"><div class="overlayBox"><div class="spinner"></div><div id="busyText">Guardando...</div></div></div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbxGeQz3o5lQ98i7w-d7AKqGzcw6hHzJUZ9T5Q0kJ2pxQRDhKnMwo2DpNfgHLmFvdIUsvQ/exec";
+const LOCAL_KEY = "control_david_v23_verifica_cierres";
+let db = {choferes:[], cobros:[], barberia:[], ingresoPropio:[], cierres:[], papelera:[]};
+let currentDriverId = null;
+let busy = false;
+let recentAction = null;
+
+function nowISO(){return new Date().toISOString();}
+function today(){const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
+function dateOnly(v){
+  if(!v) return "";
+  let s=String(v).trim();
+  if(!s) return "";
+  if(s.includes("T")) return s.slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d=new Date(s);
+  if(!isNaN(d)) return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  return s.slice(0,10);
+}
+function currentMonth(){return today().slice(0,7);}
+function currentDay(){return Number(today().slice(8,10));}
+function previousMonth(){const d=new Date(currentMonth()+"-01T00:00:00");d.setMonth(d.getMonth()-1);return d.toISOString().slice(0,7);}
+function defaultCloseMonthForDriver(id=null){
+  const prev=previousMonth();
+  if(currentDay()<=2){
+    const hasPrev=id?db.cobros.some(x=>String(x.choferId)===String(id)&&dateOnly(x.fecha).startsWith(prev)):db.cobros.some(x=>dateOnly(x.fecha).startsWith(prev));
+    if(hasPrev) return prev;
+  }
+  return currentMonth();
+}
+function monthLabel(m){return m;}
+function defaultCloseMonthForRubro(rubro){
+  const prev=previousMonth();
+  if(currentDay()<=2){
+    if(rubro==="BARBERIA" && db.barberia.some(x=>dateOnly(x.fecha).startsWith(prev))) return prev;
+    if(rubro==="INGRESO_PROPIO" && db.ingresoPropio.some(x=>dateOnly(x.fecha).startsWith(prev)&&x.facturado!=="Sí")) return prev;
+  }
+  return currentMonth();
+}
+function previousMonthPendingFor(rubro,id=null){
+  const prev=previousMonth();
+  if(rubro==="CHOFER") return id?driverMonthTotal(id,prev)>0:activeDrivers().some(c=>driverMonthTotal(c.id,prev)>0);
+  if(rubro==="BARBERIA") return barberMonthTotal(prev)>0;
+  if(rubro==="INGRESO_PROPIO") return ownMonthTotal(prev)>0;
+  return false;
+}
+function hasClosureFor(rubro,mes,id=null){
+  return db.cierres.some(c=>String(c.rubro)===String(rubro)&&String(c.mes)===String(mes)&&(id===null||String(c.choferId)===String(id)));
+}
+function activeDrivers(){return db.choferes.filter(c=>!c.eliminado);}
+function driverHasPendingPreviousMonth(c){const prev=previousMonth();return driverMonthTotal(c.id,prev)>0&&!hasClosureFor("CHOFER",prev,c.id);}
+function barberHasPendingPreviousMonth(){const prev=previousMonth();return barberMonthTotal(prev)>0&&!hasClosureFor("BARBERIA",prev);}
+function ownHasPendingPreviousMonth(){const prev=previousMonth();return ownMonthTotal(prev)>0&&!hasClosureFor("INGRESO_PROPIO",prev);}
+function pendingBadgeHtml(){return '<span class="pendingBadge">⚠️ Pendiente de cerrar factura</span>';}
+function money(n){return Number(n||0).toLocaleString("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0});}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function asNum(x){return Number(String(x||0).replace(/[^0-9.-]/g,""))||0;}
+function daysInclusive(start,end=today()){const a=new Date(dateOnly(start)+"T00:00:00"),b=new Date(dateOnly(end)+"T00:00:00");if(isNaN(a)||isNaN(b))return 0;return Math.max(0,Math.floor((b-a)/86400000)+1);}
+
+function setBusy(state,text="Guardando..."){busy=state;document.getElementById("busyOverlay").style.display=state?"flex":"none";document.getElementById("busyText").textContent=text;document.querySelectorAll("button").forEach(b=>state?b.setAttribute("disabled","disabled"):b.removeAttribute("disabled"));}
+function isDuplicate(key){const now=Date.now();if(recentAction&&recentAction.key===key&&now-recentAction.time<5000)return true;recentAction={key,time:now};return false;}
+async function guarded(btn,label,fn){if(busy)return;const old=btn?btn.textContent:"";try{if(btn)btn.textContent="⏳ "+label;setBusy(true,label+"...");await fn();}catch(e){console.error(e);alert("Error: "+(e.message||e));}finally{setBusy(false);if(btn)btn.textContent=old;}}
+
+function saveLocal(){localStorage.setItem(LOCAL_KEY,JSON.stringify(db));}
+function loadLocal(){try{const raw=localStorage.getItem(LOCAL_KEY);if(raw)db=JSON.parse(raw);}catch(e){}normalizeDB();}
+function normalizeDB(){
+  db.choferes=(db.choferes||[]).map(c=>({
+    id:String(c.id||c.ID||uid()),
+    nombre:c.nombre||c.Nombre||"",
+    vehiculo:c.vehiculo||c.Vehiculo||c.Vehículo||"",
+    canon:asNum(c.canon||c.Canon),
+    fechaInicio:dateOnly(c.fechaInicio||c.FechaInicio||c.fecha_inicio),
+    deudaInicial:asNum(c.deudaInicial||c.DeudaInicial||0),
+    eliminado:c.eliminado===true||c.eliminado==="true"||c.Eliminado===true
+  })).filter(c=>c.nombre);
+  db.cobros=(db.cobros||[]).map(x=>({
+    id:String(x.id||x.ID||uid()),
+    fecha:dateOnly(x.fecha||x.Fecha),
+    choferId:String(x.choferId||x.ChoferID||x.ChoferId||""),
+    chofer:x.chofer||x.Chofer||"",
+    importe:asNum(x.importe||x.Importe),
+    createdAt:String(x.createdAt||x.CreadoEn||x.fecha||x.Fecha||nowISO())
+  })).filter(x=>x.fecha&&x.importe);
+  db.barberia=(db.barberia||[]).map(x=>({id:String(x.id||x.ID||uid()),fecha:dateOnly(x.fecha||x.Fecha),importe:asNum(x.importe||x.Importe),createdAt:String(x.createdAt||x.fecha||nowISO())})).filter(x=>x.fecha&&x.importe);
+  db.ingresoPropio=(db.ingresoPropio||[]).map(x=>({id:String(x.id||x.ID||uid()),fecha:dateOnly(x.fecha||x.Fecha),importe:asNum(x.importe||x.Importe),facturado:x.facturado||x.Facturado||"No",obs:x.obs||x.Obs||"",createdAt:String(x.createdAt||x.fecha||nowISO())})).filter(x=>x.fecha&&x.importe);
+  db.cierres=(db.cierres||[]).map(x=>({id:String(x.id||x.ID||uid()),fechaCierre:dateOnly(x.fechaCierre||x.FechaCierre||x.fecha),mes:x.mes||x.Mes||dateOnly(x.fechaCierre||x.fecha).slice(0,7),rubro:x.rubro||x.Rubro||"",choferId:String(x.choferId||x.ChoferID||""),chofer:x.chofer||x.Chofer||"",total:asNum(x.total||x.Total),createdAt:String(x.createdAt||x.fechaCierre||nowISO())}));
+  db.papelera=(db.papelera||[]).map(x=>({id:String(x.id||uid()),tipo:x.tipo||"",fechaEliminado:x.fechaEliminado||nowISO(),registro:x.registro||{}}));
+}
+function setStatus(txt,type="warn"){const el=document.getElementById("syncStatus");el.className="status "+type;el.textContent=txt;document.getElementById("floatingSync").textContent=type==="ok"?"☁️ Guardado":type==="err"?"⚠️ Offline":"☁️ Sync";}
+function show(id){["home","drivers","driverForm","driverDetail","barber","own","backup"].forEach(x=>document.getElementById(x).classList.add("hidden"));document.getElementById(id).classList.remove("hidden");render();}
+
+async function api(action,payload={}){
+  if(action==="write"){
+    const res=await fetch(API_URL,{
+      method:"POST",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"write",payload})
+    });
+    return await res.json();
+  }
+
+  const url=API_URL+"?action="+encodeURIComponent(action);
+  const res=await fetch(url,{method:"GET",cache:"no-store"});
+  return await res.json();
+}
+async function syncNow(){
+  if(busy)return false;
+  setStatus("Sincronizando con Google Sheets...");
+  try{
+    const r=await api("read");
+    if(r&&r.ok){
+      db=r.data||db;
+      normalizeDB();
+      saveLocal();
+      setStatus("Datos sincronizados con Google Sheets.","ok");
+      render();
+      return true;
+    }
+    throw new Error((r&&r.error)||"Respuesta inválida");
+  }catch(e){
+    console.error("Error al leer desde Google Sheets:",e);
+    loadLocal();
+    setStatus("No se pudo conectar. Usando datos locales del teléfono.","err");
+    render();
+    return false;
+  }
+}
+async function saveCloud(){
+  normalizeDB();
+  saveLocal();
+  setStatus("Guardando en Google Sheets...");
+  let lastError=null;
+
+  for(let i=1;i<=3;i++){
+    try{
+      const r=await api("write",db);
+      if(r&&r.ok){
+        setStatus("Guardado automático en Google Sheets.","ok");
+        return true;
+      }
+      lastError=new Error((r&&r.error)||"Google Sheets no confirmó el guardado");
+    }catch(e){
+      lastError=e;
+      await new Promise(resolve=>setTimeout(resolve,800*i));
+    }
+  }
+
+  console.error("Error al guardar en Google Sheets:",lastError);
+  setStatus("No se pudo guardar online. Quedó guardado localmente.","err");
+  return false;
+}
+
+function latestClosure(rubro,driverId=null,mes=currentMonth()){
+  return db.cierres
+    .filter(c=>String(c.rubro)===String(rubro)&&String(c.mes)===String(mes)&&(driverId===null||String(c.choferId)===String(driverId)))
+    .sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))[0]||null;
+}
+function afterClosure(item,closure){return !closure||String(item.createdAt||"")>String(closure.createdAt||"");}
+function totalPaidDriverAllTime(id){return db.cobros.filter(x=>String(x.choferId)===String(id)).reduce((s,x)=>s+asNum(x.importe),0);}
+function debtDriver(c){return asNum(c.deudaInicial)+(daysInclusive(c.fechaInicio,today())*asNum(c.canon))-totalPaidDriverAllTime(c.id);}
+function driverMonthTotal(id,mes=currentMonth()){const close=latestClosure("CHOFER",id,mes);return db.cobros.filter(x=>String(x.choferId)===String(id)&&dateOnly(x.fecha).startsWith(mes)&&afterClosure(x,close)).reduce((s,x)=>s+asNum(x.importe),0);}
+function generatedDrivers(){return activeDrivers().reduce((s,c)=>s+driverMonthTotal(c.id),0);}
+function barberMonthTotal(mes=currentMonth()){const close=latestClosure("BARBERIA",null,mes);return db.barberia.filter(x=>dateOnly(x.fecha).startsWith(mes)&&afterClosure(x,close)).reduce((s,x)=>s+asNum(x.importe),0);}
+function generatedBarber(){return barberMonthTotal(currentMonth());}
+function ownMonthTotal(mes=currentMonth()){const close=latestClosure("INGRESO_PROPIO",null,mes);return db.ingresoPropio.filter(x=>dateOnly(x.fecha).startsWith(mes)&&x.facturado!=="Sí"&&afterClosure(x,close)).reduce((s,x)=>s+asNum(x.importe),0);}
+function generatedOwn(){return ownMonthTotal(currentMonth());}
+function totalDriverDebt(){return activeDrivers().reduce((s,c)=>s+Math.max(0,debtDriver(c)),0);}
+
+function renderMonthAlert(){
+  const box=document.getElementById("monthAlert");
+  if(currentDay()>2){box.innerHTML="";return;}
+  const prev=previousMonth();
+  const pendientes=[];
+  if(activeDrivers().some(c=>driverMonthTotal(c.id,prev)>0)&&!activeDrivers().every(c=>driverMonthTotal(c.id,prev)<=0||hasClosureFor("CHOFER",prev,c.id))) pendientes.push("Choferes");
+  if(barberMonthTotal(prev)>0&&!hasClosureFor("BARBERIA",prev)) pendientes.push("Barbería");
+  if(ownMonthTotal(prev)>0&&!hasClosureFor("INGRESO_PROPIO",prev)) pendientes.push("Ingreso propio");
+  if(pendientes.length) box.innerHTML=`<div class="status warn">⚠️ Nuevo mes detectado. Revisá cierre de ${prev}: ${pendientes.join(", ")}. Este aviso solo aparece los días 1 y 2.</div>`;
+  else box.innerHTML="";
+}
+function renderPendingHome(){
+  const pd=document.getElementById("pendingDriversHome");
+  const pb=document.getElementById("pendingBarberHome");
+  const po=document.getElementById("pendingOwnHome");
+  if(pd) pd.innerHTML=activeDrivers().some(c=>driverHasPendingPreviousMonth(c))?pendingBadgeHtml():"";
+  if(pb) pb.innerHTML=barberHasPendingPreviousMonth()?pendingBadgeHtml():"";
+  if(po) po.innerHTML=ownHasPendingPreviousMonth()?pendingBadgeHtml():"";
+}
+function render(){
+  document.getElementById("barberDate").value ||= today();
+  document.getElementById("ownDate").value ||= today();
+  const bcm=document.getElementById("barberCloseMonth"); if(bcm&&!bcm.value)bcm.value=defaultCloseMonthForRubro("BARBERIA");
+  const ocm=document.getElementById("ownCloseMonth"); if(ocm&&!ocm.value)ocm.value=defaultCloseMonthForRubro("INGRESO_PROPIO");
+  document.getElementById("driverStart").value ||= today();
+  const d=generatedDrivers(),b=generatedBarber(),o=generatedOwn();
+  document.getElementById("homeTotal").textContent=money(d+b+o);
+  document.getElementById("homeDrivers").textContent=money(d);
+  document.getElementById("homeBarber").textContent=money(b);
+  document.getElementById("homeOwn").textContent=money(o);
+  document.getElementById("homeDriverDebt").textContent="Deuda total de choferes: "+money(totalDriverDebt());
+  document.getElementById("barberTotal").textContent=money(b);
+  document.getElementById("ownTotal").textContent=money(o);
+  renderPendingHome();renderDrivers();renderHistories();renderTrash();renderMonthAlert();updateRubroClosePreview("BARBERIA");updateRubroClosePreview("INGRESO_PROPIO");
+}
+function renderDrivers(){
+  const box=document.getElementById("driversList");box.innerHTML="";
+  activeDrivers().forEach(c=>{
+    const debt=debtDriver(c);
+    const div=document.createElement("div");
+    div.className="driver "+(debt>0?"redState":"greenState");
+    div.onclick=()=>openDriver(c.id);
+    const pending=driverHasPendingPreviousMonth(c)?pendingBadgeHtml():"";
+    div.innerHTML=`<h3>${c.nombre}</h3><div class="small">${c.vehiculo||""} · Canon ${money(c.canon)} · Inicio ${dateOnly(c.fechaInicio)} · Ajuste inicial ${money(c.deudaInicial)}</div><span class="badge ${debt>0?"red":"green"}">${debt>0?"DEBE "+money(debt):"AL DÍA"}</span>${pending}<div class="small">Cobrado este mes para ARCA: <b>${money(driverMonthTotal(c.id))}</b></div>`;
+    box.appendChild(div);
+  });
+  if(!activeDrivers().length)box.innerHTML="<p class='small'>Todavía no hay choferes cargados.</p>";
+}
+function renderHistories(){
+  document.getElementById("barberHistory").innerHTML=db.barberia.slice().reverse().map(x=>`<div class="item">${dateOnly(x.fecha)} · <b>${money(x.importe)}</b><br><button class="red smallBtn" onclick="deleteRecord('BARBERIA','${x.id}',this)">Eliminar</button></div>`).join("")||"<p class='small'>Sin ingresos.</p>";
+  document.getElementById("ownHistory").innerHTML=db.ingresoPropio.slice().reverse().map(x=>`<div class="item">${dateOnly(x.fecha)} · <b>${money(x.importe)}</b> · Factura: ${x.facturado||"No"}<br><span class="small">${x.obs||""}</span><br><button class="red smallBtn" onclick="deleteRecord('INGRESO_PROPIO','${x.id}',this)">Eliminar</button></div>`).join("")||"<p class='small'>Sin ingresos.</p>";
+}
+function renderTrash(){
+  const box=document.getElementById("trashHistory");if(!box)return;
+  if(!db.papelera.length){box.innerHTML="<p class='small'>Papelera vacía.</p>";return;}
+  box.innerHTML=db.papelera.slice().reverse().map(p=>{const r=p.registro||{};const desc=p.tipo==="CHOFER"?(r.nombre||"Chofer"):(dateOnly(r.fecha)+" · "+(r.chofer||"")+" · "+money(r.importe));return `<div class="item"><b>${p.tipo}</b> eliminado: ${dateOnly(p.fechaEliminado)}<br><span class="small">${desc}</span><br><button class="green smallBtn" onclick="restoreTrash('${p.id}',this)">Restaurar</button></div>`;}).join("");
+}
+
+function openDriverForm(id=null){
+  const c=id?db.choferes.find(x=>String(x.id)===String(id)):null;
+  document.getElementById("driverFormTitle").textContent=c?"Editar chofer":"Agregar chofer";
+  document.getElementById("driverId").value=c?c.id:"";
+  document.getElementById("driverName").value=c?c.nombre:"";
+  document.getElementById("driverVehicle").value=c?(c.vehiculo||""):"";
+  document.getElementById("driverDaily").value=c?c.canon:25000;
+  document.getElementById("driverInitialDebt").value=c?(c.deudaInicial||0):0;
+  document.getElementById("driverStart").value=c?dateOnly(c.fechaInicio):today();
+
+  const dz=document.getElementById("driverDeleteZone");
+  if(dz){
+    if(c){
+      dz.innerHTML=`<div class="dangerZone"><b>Zona de riesgo</b><br><span class="small">Eliminar chofer lo manda a Papelera. Sus cobros no se borran.</span><button class="red" onclick="deleteDriver('${c.id}',this)">Eliminar chofer</button></div>`;
+    }else{
+      dz.innerHTML="";
+    }
+  }
+  show("driverForm");
+}
+async function saveDriver(btn){
+  await guarded(btn,"Guardando chofer",async()=>{
+    const id=document.getElementById("driverId").value||uid();
+    const c={id,nombre:document.getElementById("driverName").value.trim(),vehiculo:document.getElementById("driverVehicle").value.trim(),canon:asNum(document.getElementById("driverDaily").value),deudaInicial:asNum(document.getElementById("driverInitialDebt").value),fechaInicio:dateOnly(document.getElementById("driverStart").value||today())};
+    if(!c.nombre||!c.canon){alert("Completá nombre y canon.");return;}
+    const key="driver|"+id+"|"+c.nombre+"|"+c.canon+"|"+c.fechaInicio+"|"+c.deudaInicial;
+    if(isDuplicate(key)){alert("Acción duplicada detectada.");return;}
+    const idx=db.choferes.findIndex(x=>String(x.id)===String(id));
+    if(idx>=0)db.choferes[idx]=c;else db.choferes.push(c);
+    await saveCloud();show("drivers");
+  });
+}
+function openDriver(id){
+  currentDriverId=id;
+  const c=db.choferes.find(x=>String(x.id)===String(id));if(!c||c.eliminado)return;
+  const debt=debtDriver(c);
+  const hist=db.cobros.filter(x=>String(x.choferId)===String(id)).slice().reverse().map(x=>`<div class="item">${dateOnly(x.fecha)} · <b>${money(x.importe)}</b><br><button class="red smallBtn" onclick="deleteRecord('COBRO','${x.id}',this)">Eliminar cobro</button></div>`).join("")||"<p class='small'>Sin cobros.</p>";
+  const pending=driverHasPendingPreviousMonth(c)?pendingBadgeHtml():"";
+  document.getElementById("driverDetailBox").innerHTML=`<h2>${c.nombre}</h2>${pending}<p>${c.vehiculo||""}</p><p class="small">Inicio ${dateOnly(c.fechaInicio)} · Canon ${money(c.canon)} · Ajuste inicial ${money(c.deudaInicial)}</p><div class="driver ${debt>0?"redState":"greenState"}"><h3>${debt>0?"DEBE "+money(debt):"AL DÍA"}</h3><p>Cobrado este mes para ARCA: <b>${money(driverMonthTotal(c.id))}</b></p></div><h3>Registrar cobro</h3><input type="date" id="payDate" value="${today()}"><input type="number" id="payAmount" placeholder="Importe recibido"><button class="green" onclick="addPay(this)">Guardar cobro</button><hr><h3>📄 Cerrar factura mensual</h3>
+  <p class="small">Elegí el mes a cerrar. Si estás en los días 1 o 2, la app propone el mes anterior para evitar que cierre $0 por error.</p>
+  <input type="month" id="driverCloseMonth" value="${defaultCloseMonthForDriver(c.id)}" onchange="updateDriverClosePreview('${c.id}')">
+  <div class="notice" id="driverClosePreview"></div>
+  <button class="orange" onclick="closeDriverMonth('${c.id}',this)">📄 Cerrar factura del mes seleccionado</button>
+  <button class="gray" onclick="openDriverForm('${c.id}')">✏️ Editar chofer</button>
+  <hr><h3>Historial de cobros</h3><div class="history">${hist}</div>`;
+  setTimeout(()=>updateDriverClosePreview(id),0);
+  show("driverDetail");
+}
+async function deleteDriver(id,btn){
+  const c=db.choferes.find(x=>String(x.id)===String(id));if(!c)return;
+  if(!confirm("¿Eliminar el chofer "+c.nombre+"? Quedará en Papelera y sus cobros no se borran."))return;
+  await guarded(btn,"Eliminando chofer",async()=>{
+    const backup=JSON.parse(JSON.stringify(db));
+    const idx=db.choferes.findIndex(x=>String(x.id)===String(id));
+    if(idx<0)return;
+    const registro={...db.choferes[idx]};
+    db.choferes[idx].eliminado=true;
+    db.papelera.push({id:uid(),tipo:"CHOFER",fechaEliminado:nowISO(),registro});
+
+    const ok=await saveCloud();
+    if(!ok){
+      db=backup;saveLocal();
+      alert("No se pudo eliminar el chofer porque falló la conexión con Google Sheets.");
+      openDriverForm(id);
+      return;
+    }
+    currentDriverId=null;
+    show("drivers");
+  });
+}
+
+async function addPay(btn){
+  await guarded(btn,"Guardando cobro",async()=>{
+    const c=db.choferes.find(x=>String(x.id)===String(currentDriverId));if(!c)return;
+    const fecha=dateOnly(document.getElementById("payDate").value||today());
+    const importe=asNum(document.getElementById("payAmount").value);
+    if(importe<=0){alert("Cargá un importe.");return;}
+    const key="pay|"+c.id+"|"+fecha+"|"+importe;
+    if(isDuplicate(key)){alert("Cobro duplicado detectado. No se guardó dos veces.");return;}
+    db.cobros.push({id:uid(),fecha,choferId:c.id,chofer:c.nombre,importe,createdAt:nowISO()});
+    await saveCloud();openDriver(c.id);
+  });
+}
+async function addBarber(btn){
+  await guarded(btn,"Guardando ingreso",async()=>{
+    const fecha=dateOnly(document.getElementById("barberDate").value||today()),importe=asNum(document.getElementById("barberAmount").value);
+    if(importe<=0){alert("Cargá un importe.");return;}
+    const key="barber|"+fecha+"|"+importe;if(isDuplicate(key)){alert("Ingreso duplicado detectado.");return;}
+    db.barberia.push({id:uid(),fecha,importe,createdAt:nowISO()});
+    document.getElementById("barberAmount").value="";
+    await saveCloud();render();
+  });
+}
+async function addOwn(btn){
+  await guarded(btn,"Guardando ingreso",async()=>{
+    const fecha=dateOnly(document.getElementById("ownDate").value||today()),importe=asNum(document.getElementById("ownAmount").value),facturado=document.getElementById("ownInvoiced").value,obs=document.getElementById("ownNote").value.trim();
+    if(importe<=0){alert("Cargá un importe.");return;}
+    const key="own|"+fecha+"|"+importe+"|"+facturado+"|"+obs;if(isDuplicate(key)){alert("Ingreso duplicado detectado.");return;}
+    db.ingresoPropio.push({id:uid(),fecha,importe,facturado,obs,createdAt:nowISO()});
+    document.getElementById("ownAmount").value="";document.getElementById("ownNote").value="";
+    await saveCloud();render();
+  });
+}
+async function deleteRecord(tipo,id,btn){
+  if(!confirm("¿Eliminar este registro? Quedará guardado en Papelera."))return;
+  await guarded(btn,"Eliminando",async()=>{
+    const key="delete|"+tipo+"|"+id;if(isDuplicate(key))return;
+    const backup=JSON.parse(JSON.stringify(db));
+    let registro=null;
+    if(tipo==="COBRO"){registro=db.cobros.find(x=>String(x.id)===String(id));db.cobros=db.cobros.filter(x=>String(x.id)!==String(id));}
+    if(tipo==="BARBERIA"){registro=db.barberia.find(x=>String(x.id)===String(id));db.barberia=db.barberia.filter(x=>String(x.id)!==String(id));}
+    if(tipo==="INGRESO_PROPIO"){registro=db.ingresoPropio.find(x=>String(x.id)===String(id));db.ingresoPropio=db.ingresoPropio.filter(x=>String(x.id)!==String(id));}
+    if(registro)db.papelera.push({id:uid(),tipo,fechaEliminado:nowISO(),registro});
+    const ok=await saveCloud();
+    if(!ok){db=backup;saveLocal();alert("No se pudo eliminar porque falló la conexión con Google Sheets. Intentá nuevamente.");}
+    if(tipo==="COBRO"&&currentDriverId)openDriver(currentDriverId);else render();
+  });
+}
+async function restoreTrash(id,btn){
+  await guarded(btn,"Restaurando",async()=>{
+    const item=db.papelera.find(x=>String(x.id)===String(id));if(!item)return;
+    const backup=JSON.parse(JSON.stringify(db));
+    if(item.tipo==="CHOFER"){
+      const c=item.registro;
+      const idx=db.choferes.findIndex(x=>String(x.id)===String(c.id));
+      if(idx>=0)db.choferes[idx]={...db.choferes[idx],eliminado:false};
+      else db.choferes.push({...c,eliminado:false});
+    }
+    if(item.tipo==="COBRO")db.cobros.push(item.registro);
+    if(item.tipo==="BARBERIA")db.barberia.push(item.registro);
+    if(item.tipo==="INGRESO_PROPIO")db.ingresoPropio.push(item.registro);
+    db.papelera=db.papelera.filter(x=>String(x.id)!==String(id));
+    const ok=await saveCloud();
+    if(!ok){db=backup;saveLocal();alert("No se pudo restaurar porque falló la conexión con Google Sheets.");}
+    render();
+  });
+}
+function downloadText(name,content){const blob=new Blob([content],{type:"text/plain;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();}
+function closureText(c){return `RESUMEN CIERRE MENSUAL\nFecha: ${c.fechaCierre}\nMes: ${c.mes}\nRubro: ${c.rubro}\n${c.chofer?"Chofer: "+c.chofer+"\n":""}Total cerrado para ARCA: ${money(c.total)}\nIMPORTANTE: este cierre NO modifica deuda acumulada.\n`;}
+function updateDriverClosePreview(id){
+  const el=document.getElementById("driverClosePreview");
+  const input=document.getElementById("driverCloseMonth");
+  if(!el||!input)return;
+  const mes=input.value||currentMonth();
+  const total=driverMonthTotal(id,mes);
+  const cierre=db.cierres.find(c=>c.rubro==="CHOFER"&&String(c.choferId)===String(id)&&c.mes===mes);
+  el.innerHTML=`Mes seleccionado: <b>${mes}</b><br>Total para cerrar: <b>${money(total)}</b>${cierre?`<br><span style="color:#dc2626;font-weight:900;">Este mes ya tiene un cierre guardado.</span>`:""}`;
+}
+
+async function readCloudDataDirect(){
+  const r=await api("read");
+  if(!r||!r.ok)throw new Error((r&&r.error)||"No se pudo leer Google Sheets");
+  return r.data||{};
+}
+function closureExistsInData(data,rubro,mes,id=null){
+  const arr=data.cierres||data.FACTURAS_MENSUALES||[];
+  return arr.some(c=>String(c.rubro||c.Rubro)===String(rubro)&&String(c.mes||c.Mes)===String(mes)&&(id===null||String(c.choferId||c.ChoferID||"")===String(id)));
+}
+async function verifyClosureSaved(rubro,mes,id=null){
+  for(let i=1;i<=3;i++){
+    try{
+      const data=await readCloudDataDirect();
+      if(closureExistsInData(data,rubro,mes,id)){
+        db=data;
+        normalizeDB();
+        saveLocal();
+        return true;
+      }
+    }catch(e){
+      console.error("Verificación de cierre falló:",e);
+    }
+    await new Promise(resolve=>setTimeout(resolve,700*i));
+  }
+  return false;
+}
+
+async function closeDriverMonth(id,btn){
+  const c=db.choferes.find(x=>String(x.id)===String(id));if(!c)return;
+  const mes=(document.getElementById("driverCloseMonth")&&document.getElementById("driverCloseMonth").value)||currentMonth();
+  const total=driverMonthTotal(id,mes);
+  const prev=previousMonth();
+
+  if(mes===currentMonth() && previousMonthPendingFor("CHOFER",id) && !hasClosureFor("CHOFER",prev,id)){
+    alert("Primero tenés que cerrar el mes anterior ("+prev+") de este chofer.");
+    const inp=document.getElementById("driverCloseMonth"); if(inp) inp.value=prev;
+    updateDriverClosePreview(id);
+    return;
+  }
+
+  if(hasClosureFor("CHOFER",mes,id)){
+    alert("Este chofer ya tiene un cierre guardado para "+mes+". No hace falta cerrarlo otra vez.");
+    updateDriverClosePreview(id);
+    return;
+  }
+
+  if(!confirm(`Cerrar factura mensual de ${c.nombre} por ${money(total)}?\nMes: ${mes}\n\nLa deuda NO se modifica.`))return;
+
+  await guarded(btn,"Cerrando factura",async()=>{
+    const key="closeDriver|"+id+"|"+mes+"|"+total;if(isDuplicate(key)){alert("Cierre duplicado detectado.");return;}
+
+    const backup=JSON.parse(JSON.stringify(db));
+    const cierre={id:uid(),fechaCierre:today(),mes,rubro:"CHOFER",choferId:id,chofer:c.nombre,total,createdAt:nowISO()};
+    db.cierres.push(cierre);
+
+    const ok=await saveCloud();
+    if(!ok){
+      db=backup;saveLocal();
+      alert("No se pudo guardar el cierre en Google Sheets. No se marcó como cerrado.");
+      openDriver(id);
+      return;
+    }
+
+    const verified=await verifyClosureSaved("CHOFER",mes,id);
+    if(!verified){
+      db=backup;saveLocal();
+      alert("Google Sheets respondió, pero el cierre no apareció al volver a leer la hoja. Revisá el Apps Script o la hoja FACTURAS_MENSUALES.");
+      openDriver(id);
+      return;
+    }
+
+    downloadText("cierre_CHOFER_"+c.nombre+"_"+mes+".txt",closureText(cierre));
+    setStatus("Cierre guardado y verificado en Google Sheets.","ok");
+    openDriver(id);
+  });
+}
+function updateRubroClosePreview(rubro){
+  const inputId=rubro==="BARBERIA"?"barberCloseMonth":"ownCloseMonth";
+  const boxId=rubro==="BARBERIA"?"barberClosePreview":"ownClosePreview";
+  const input=document.getElementById(inputId);
+  const box=document.getElementById(boxId);
+  if(!input||!box)return;
+  const mes=input.value||currentMonth();
+  const total=rubro==="BARBERIA"?barberMonthTotal(mes):ownMonthTotal(mes);
+  const cierre=hasClosureFor(rubro,mes);
+  box.innerHTML=`Mes seleccionado: <b>${mes}</b><br>Total para cerrar: <b>${money(total)}</b>${cierre?`<br><span style="color:#dc2626;font-weight:900;">Este mes ya tiene un cierre guardado.</span>`:""}`;
+}
+async function closeMonthly(rubro,btn){
+  const inputId=rubro==="BARBERIA"?"barberCloseMonth":"ownCloseMonth";
+  const mes=(document.getElementById(inputId)&&document.getElementById(inputId).value)||currentMonth();
+  const prev=previousMonth();
+
+  if(mes===currentMonth() && previousMonthPendingFor(rubro) && !hasClosureFor(rubro,prev)){
+    alert("Primero tenés que cerrar el mes anterior ("+prev+") para este rubro.");
+    if(document.getElementById(inputId)) document.getElementById(inputId).value=prev;
+    updateRubroClosePreview(rubro);
+    return;
+  }
+
+  if(hasClosureFor(rubro,mes)){
+    alert("Este rubro ya tiene un cierre guardado para "+mes+". No hace falta cerrarlo otra vez.");
+    updateRubroClosePreview(rubro);
+    return;
+  }
+
+  const total=rubro==="BARBERIA"?barberMonthTotal(mes):ownMonthTotal(mes);
+  if(!confirm(`Cerrar factura mensual por ${money(total)}?\nMes: ${mes}\n\nEsto reinicia el contador mensual, pero no borra historial ni deudas.`))return;
+
+  await guarded(btn,"Cerrando factura",async()=>{
+    const key="close|"+rubro+"|"+mes+"|"+total;if(isDuplicate(key)){alert("Cierre duplicado detectado.");return;}
+
+    const backup=JSON.parse(JSON.stringify(db));
+    const cierre={id:uid(),fechaCierre:today(),mes,rubro,total,createdAt:nowISO()};
+    db.cierres.push(cierre);
+
+    const ok=await saveCloud();
+    if(!ok){
+      db=backup;saveLocal();
+      alert("No se pudo guardar el cierre en Google Sheets. No se marcó como cerrado.");
+      render();
+      return;
+    }
+
+    const verified=await verifyClosureSaved(rubro,mes,null);
+    if(!verified){
+      db=backup;saveLocal();
+      alert("Google Sheets respondió, pero el cierre no apareció al volver a leer la hoja. Revisá el Apps Script o la hoja FACTURAS_MENSUALES.");
+      render();
+      return;
+    }
+
+    downloadText("cierre_"+rubro+"_"+mes+".txt",closureText(cierre));
+    setStatus("Cierre guardado y verificado en Google Sheets.","ok");
+    render();
+  });
+}
+function exportLocal(){const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="respaldo_control_david_"+today()+".json";a.click();}
+function importLocal(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=async()=>{try{db=JSON.parse(r.result);normalizeDB();await saveCloud();render();alert("Respaldo importado y guardado online.");}catch(e){alert("Archivo inválido.");}};r.readAsText(f);}
+
+loadLocal();
+syncNow();
+</script>
+</body>
+</html>
